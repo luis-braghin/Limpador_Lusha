@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpador de Leads - Travelex</title>
+    
+    <!-- Papa Parse para ler CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- SheetJS para gerar Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0a0a0b;
+            color: #e4e4e7;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 3rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #27272a;
+        }
+
+        .logo {
+            height: 40px;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #fafafa;
+        }
+
+        .header span {
+            color: #71717a;
+            font-size: 0.875rem;
+        }
+
+        /* Upload Area */
+        .upload-area {
+            border: 2px dashed #3f3f46;
+            border-radius: 12px;
+            padding: 3rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #18181b;
+            margin-bottom: 2rem;
+        }
+
+        .upload-area:hover {
+            border-color: #0891b2;
+            background: #1c1c1f;
+        }
+
+        .upload-area.dragover {
+            border-color: #06b6d4;
+            background: #0c2a32;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .upload-area h2 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+            color: #fafafa;
+        }
+
+        .upload-area p {
+            color: #71717a;
+            font-size: 0.875rem;
+        }
+
+        .upload-area input {
+            display: none;
+        }
+
+        /* Sections */
+        .section {
+            background: #18181b;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #27272a;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .section h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fafafa;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-small {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+            background: #27272a;
+            color: #a1a1aa;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-small:hover {
+            background: #3f3f46;
+            color: #fafafa;
+        }
+
+        /* Columns Grid */
+        .columns-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 0.5rem;
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .columns-grid::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .columns-grid::-webkit-scrollbar-track {
+            background: #27272a;
+            border-radius: 3px;
+        }
+
+        .columns-grid::-webkit-scrollbar-thumb {
+            background: #52525b;
+            border-radius: 3px;
+        }
+
+        .column-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: #27272a;
+            border-radius: 6px;
+            font-size: 0.813rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .column-item:hover {
+            background: #3f3f46;
+        }
+
+        .column-item.unchecked {
+            opacity: 0.5;
+        }
+
+        .column-item input[type="checkbox"] {
+            accent-color: #0891b2;
+            cursor: pointer;
+        }
+
+        .column-item label {
+            cursor: pointer;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .column-letter {
+            color: #71717a;
+            font-size: 0.688rem;
+            font-family: monospace;
+            min-width: 1.5rem;
+        }
+
+        /* Preview Table */
+        .preview-container {
+            overflow-x: auto;
+        }
+
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+
+        .preview-table th,
+        .preview-table td {
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #27272a;
+            white-space: nowrap;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .preview-table th {
+            background: #27272a;
+            color: #a1a1aa;
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+        }
+
+        .preview-table tr:hover td {
+            background: #1f1f23;
+        }
+
+        .preview-info {
+            color: #71717a;
+            font-size: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        /* Export Section */
+        .export-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .format-select {
+            padding: 0.625rem 1rem;
+            background: #27272a;
+            border: 1px solid #3f3f46;
+            border-radius: 8px;
+            color: #fafafa;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+
+        .format-select:focus {
+            outline: none;
+            border-color: #0891b2;
+        }
+
+        .btn-export {
+            padding: 0.625rem 1.5rem;
+            background: #0891b2;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-export:hover {
+            background: #0e7490;
+        }
+
+        .btn-export:disabled {
+            background: #27272a;
+            color: #52525b;
+            cursor: not-allowed;
+        }
+
+        .export-info {
+            color: #71717a;
+            font-size: 0.813rem;
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Status Messages */
+        .status {
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+
+        .status.success {
+            background: #052e16;
+            border: 1px solid #166534;
+            color: #4ade80;
+        }
+
+        .status.error {
+            background: #2c0a0a;
+            border: 1px solid #7f1d1d;
+            color: #f87171;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <img src="https://i.imgur.com/sJRuiYl.png" alt="Travelex" class="logo">
+            <div>
+                <h1>Limpador de Leads</h1>
+                <span>Limpa e exporta CSVs do Lusha</span>
+            </div>
+        </div>
+
+        <!-- Status -->
+        <div id="status" class="status hidden"></div>
+
+        <!-- Upload Area -->
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📄</div>
+            <h2>Arraste o CSV aqui</h2>
+            <p>ou clique para selecionar o arquivo</p>
+            <input type="file" id="fileInput" accept=".csv">
+        </div>
+
+        <!-- Columns Section -->
+        <div class="section hidden" id="columnsSection">
+            <div class="section-header">
+                <h3>Colunas para exportar</h3>
+                <div class="section-actions">
+                    <button class="btn-small" onclick="selectAll()">Marcar todas</button>
+                    <button class="btn-small" onclick="deselectAll()">Desmarcar todas</button>
+                    <button class="btn-small" onclick="resetDefaults()">Restaurar padrão</button>
+                </div>
+            </div>
+            <div class="columns-grid" id="columnsGrid"></div>
+        </div>
+
+        <!-- Preview Section -->
+        <div class="section hidden" id="previewSection">
+            <div class="section-header">
+                <h3>Preview</h3>
+            </div>
+            <div class="preview-container">
+                <table class="preview-table" id="previewTable"></table>
+            </div>
+            <p class="preview-info" id="previewInfo"></p>
+        </div>
+
+        <!-- Export Section -->
+        <div class="section hidden" id="exportSection">
+            <div class="export-section">
+                <select class="format-select" id="formatSelect">
+                    <option value="xlsx">.xlsx (Excel)</option>
+                    <option value="csv">.csv (CSV limpo)</option>
+                </select>
+                <button class="btn-export" id="exportBtn" onclick="exportFile()">Exportar arquivo</button>
+                <span class="export-info" id="exportInfo"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Colunas que vêm DESMARCADAS por padrão (índices 0-based)
+        const DEFAULT_UNCHECKED = [
+            0,  // A - Date
+            1,  // B - User
+            6,  // G - Direct Email
+            10, // K - Additional Email 2
+            11, // L - Additional Email 2 Confidence
+            18, // S - Departments
+            24, // Y - Country ISO
+            25, // Z - Tags
+            27, // AB - Company Domain
+            28, // AC - Company Description
+            29, // AD - Company Year Founded
+            34, // AI - Total Funding Amount
+            35, // AJ - Total Number of Rounds
+            36, // AK - Last Round/Event Amount
+            39, // AN - IPO Status
+            40, // AO - IPO Date
+            43, // AR - Company Technologies
+            44, // AS - Company SIC
+            45, // AT - Company NAIC
+            46, // AU - Company Specialties
+            47, // AV - Company Continent
+            51, // AZ - Company Country ISO
+            52, // BA - Company Number of Intent Topics
+            53, // BB - Company Intent Topics
+            54, // BC - Company Intent Level
+            55  // BD - Topic Count Trend
+        ];
+
+        // Estado global
+        let csvData = null;
+        let headers = [];
+        let selectedColumns = [];
+
+        // Elementos DOM
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const columnsSection = document.getElementById('columnsSection');
+        const columnsGrid = document.getElementById('columnsGrid');
+        const previewSection = document.getElementById('previewSection');
+        const previewTable = document.getElementById('previewTable');
+        const previewInfo = document.getElementById('previewInfo');
+        const exportSection = document.getElementById('exportSection');
+        const exportInfo = document.getElementById('exportInfo');
+        const statusDiv = document.getElementById('status');
+
+        // Converte índice para letra do Excel (0 = A, 25 = Z, 26 = AA, etc)
+        function indexToLetter(index) {
+            let letter = '';
+            while (index >= 0) {
+                letter = String.fromCharCode((index % 26) + 65) + letter;
+                index = Math.floor(index / 26) - 1;
+            }
+            return letter;
+        }
+
+        // Mostra status
+        function showStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.classList.remove('hidden');
+            setTimeout(() => statusDiv.classList.add('hidden'), 5000);
+        }
+
+        // Limpa texto (remove quebras de linha e espaços extras)
+        function cleanText(text) {
+            if (typeof text !== 'string') return text;
+            return text
+                .replace(/\r\n/g, ' ')
+                .replace(/\n/g, ' ')
+                .replace(/\r/g, ' ')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+        }
+
+        // Upload handlers
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.csv')) {
+                processFile(file);
+            } else {
+                showStatus('Por favor, selecione um arquivo .csv', 'error');
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) processFile(file);
+        });
+
+        // Processa o arquivo CSV
+        function processFile(file) {
+            Papa.parse(file, {
+                complete: function(results) {
+                    if (results.errors.length > 0) {
+                        showStatus('Erro ao ler o arquivo CSV', 'error');
+                        return;
+                    }
+
+                    // Limpa os dados
+                    csvData = results.data
+                        .filter(row => row.some(cell => cell && cell.trim()))
+                        .map(row => row.map(cell => cleanText(cell)));
+
+                    if (csvData.length < 2) {
+                        showStatus('Arquivo vazio ou inválido', 'error');
+                        return;
+                    }
+
+                    headers = csvData[0];
+                    
+                    // Inicializa colunas selecionadas (todas menos as default unchecked)
+                    selectedColumns = headers.map((_, i) => !DEFAULT_UNCHECKED.includes(i));
+
+                    renderColumns();
+                    renderPreview();
+                    updateExportInfo();
+
+                    columnsSection.classList.remove('hidden');
+                    previewSection.classList.remove('hidden');
+                    exportSection.classList.remove('hidden');
+
+                    showStatus(`Arquivo carregado: ${csvData.length - 1} contatos`, 'success');
+                },
+                error: function() {
+                    showStatus('Erro ao processar o arquivo', 'error');
+                }
+            });
+        }
+
+        // Renderiza checkboxes das colunas
+        function renderColumns() {
+            columnsGrid.innerHTML = '';
+            
+            headers.forEach((header, index) => {
+                const div = document.createElement('div');
+                div.className = `column-item ${selectedColumns[index] ? '' : 'unchecked'}`;
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `col-${index}`;
+                checkbox.checked = selectedColumns[index];
+                checkbox.addEventListener('change', () => toggleColumn(index));
+
+                const letter = document.createElement('span');
+                letter.className = 'column-letter';
+                letter.textContent = indexToLetter(index);
+
+                const label = document.createElement('label');
+                label.htmlFor = `col-${index}`;
+                label.textContent = header;
+                label.title = header;
+
+                div.appendChild(checkbox);
+                div.appendChild(letter);
+                div.appendChild(label);
+                columnsGrid.appendChild(div);
+            });
+        }
+
+        // Toggle coluna
+        function toggleColumn(index) {
+            selectedColumns[index] = !selectedColumns[index];
+            renderColumns();
+            renderPreview();
+            updateExportInfo();
+        }
+
+        // Selecionar todas
+        function selectAll() {
+            selectedColumns = headers.map(() => true);
+            renderColumns();
+            renderPreview();
+            updateExportInfo();
+        }
+
+        // Desmarcar todas
+        function deselectAll() {
+            selectedColumns = headers.map(() => false);
+            renderColumns();
+            renderPreview();
+            updateExportInfo();
+        }
+
+        // Restaurar padrão
+        function resetDefaults() {
+            selectedColumns = headers.map((_, i) => !DEFAULT_UNCHECKED.includes(i));
+            renderColumns();
+            renderPreview();
+            updateExportInfo();
+        }
+
+        // Renderiza preview
+        function renderPreview() {
+            const selectedIndices = selectedColumns
+                .map((selected, i) => selected ? i : -1)
+                .filter(i => i !== -1);
+
+            if (selectedIndices.length === 0) {
+                previewTable.innerHTML = '<tr><td>Selecione pelo menos uma coluna</td></tr>';
+                previewInfo.textContent = '';
+                return;
+            }
+
+            let html = '<thead><tr>';
+            selectedIndices.forEach(i => {
+                html += `<th>${headers[i]}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            const previewRows = csvData.slice(1, 6);
+            previewRows.forEach(row => {
+                html += '<tr>';
+                selectedIndices.forEach(i => {
+                    const value = row[i] || '';
+                    html += `<td title="${value}">${value}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody>';
+
+            previewTable.innerHTML = html;
+            previewInfo.textContent = `Mostrando ${previewRows.length} de ${csvData.length - 1} contatos`;
+        }
+
+        // Atualiza info de exportação
+        function updateExportInfo() {
+            const selectedCount = selectedColumns.filter(Boolean).length;
+            exportInfo.textContent = `${selectedCount} colunas · ${csvData.length - 1} contatos`;
+        }
+
+        // Exporta arquivo
+        function exportFile() {
+            const format = document.getElementById('formatSelect').value;
+            const selectedIndices = selectedColumns
+                .map((selected, i) => selected ? i : -1)
+                .filter(i => i !== -1);
+
+            if (selectedIndices.length === 0) {
+                showStatus('Selecione pelo menos uma coluna', 'error');
+                return;
+            }
+
+            // Filtra dados pelas colunas selecionadas
+            const filteredData = csvData.map(row => 
+                selectedIndices.map(i => row[i] || '')
+            );
+
+            if (format === 'xlsx') {
+                exportXLSX(filteredData);
+            } else {
+                exportCSV(filteredData);
+            }
+        }
+
+        // Exporta como XLSX
+        function exportXLSX(data) {
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Contatos');
+            XLSX.writeFile(wb, 'contatos_limpos.xlsx');
+            showStatus('Arquivo Excel exportado com sucesso!', 'success');
+        }
+
+        // Exporta como CSV
+        function exportCSV(data) {
+            const csv = Papa.unparse(data);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'contatos_limpos.csv';
+            link.click();
+            showStatus('Arquivo CSV exportado com sucesso!', 'success');
+        }
+    </script>
+</body>
+</html>
